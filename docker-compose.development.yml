@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  strapi:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: strapi-dev
+    restart: unless-stopped
+    ports:
+      - '${STRAPI_PORT:-1337}:1337'
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      # Database configuration from environment variables
+      DATABASE_CLIENT: ${DATABASE_CLIENT:-postgres}
+      DATABASE_HOST: ${DATABASE_HOST:-localhost}
+      DATABASE_PORT: ${DATABASE_PORT:-5432}
+      DATABASE_NAME: ${DATABASE_NAME:-strapi}
+      DATABASE_USERNAME: ${DATABASE_USERNAME:-strapi}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-strapi}
+      DATABASE_SSL: ${DATABASE_SSL:-false}
+      DATABASE_FILENAME: ${DATABASE_FILENAME:-./data/data.db}
+      # Strapi secrets
+      JWT_SECRET: ${JWT_SECRET:-your-jwt-secret-here}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET:-your-admin-jwt-secret-here}
+      APP_KEYS: ${APP_KEYS:-your-app-key1,your-app-key2,your-app-key3,your-app-key4}
+      API_TOKEN_SALT: ${API_TOKEN_SALT:-your-api-token-salt-here}
+      TRANSFER_TOKEN_SALT: ${TRANSFER_TOKEN_SALT:-your-transfer-token-salt-here}
+      # Strapi configuration
+      STRAPI_DISABLE_UPDATE_NOTIFICATION: ${STRAPI_DISABLE_UPDATE_NOTIFICATION:-true}
+      STRAPI_HIDE_STARTUP_MESSAGE: ${STRAPI_HIDE_STARTUP_MESSAGE:-true}
+      # Additional environment variables
+      HOST: ${HOST:-0.0.0.0}
+      PORT: ${PORT:-1337}
+    volumes:
+      # Mount source code for hot reloading
+      - ./packages:/app/packages
+      - ./examples/getstarted/src:/app/examples/getstarted/src
+      - ./examples/getstarted/config:/app/examples/getstarted/config
+      - ./examples/getstarted/public:/app/examples/getstarted/public
+      # Persistent data (only needed for SQLite)
+      - strapi_data:/app/examples/getstarted/data
+      # Node modules (avoid overwriting)
+      - /app/node_modules
+      - /app/examples/getstarted/node_modules
+    networks:
+      - strapi-network
+
+  # Optional local databases - can be removed if using external databases
+  postgres:
+    image: postgres:15-alpine
+    container_name: strapi-postgres
+    restart: unless-stopped
+    profiles:
+      - local-db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${DATABASE_USERNAME:-strapi}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-strapi}
+      POSTGRES_DB: ${DATABASE_NAME:-strapi}
+    ports:
+      - '${DATABASE_PORT:-5432}:5432'
+    networks:
+      - strapi-network
+
+
+
+  adminer:
+    image: adminer:latest
+    container_name: strapi-adminer
+    restart: unless-stopped
+    profiles:
+      - local-db
+    ports:
+      - '8085:8080'
+    networks:
+      - strapi-network
+
+volumes:
+  strapi_data:
+  postgres_data:
+
+networks:
+  strapi-network:
+    driver: bridge
